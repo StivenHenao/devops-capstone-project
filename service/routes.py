@@ -5,6 +5,8 @@ This microservice handles the lifecycle of Accounts
 """
 # pylint: disable=unused-import
 from flask import jsonify, request, make_response, abort, url_for   # noqa; F401
+from service.models import Account, DataValidationError
+from service.common import status
 from service.models import Account
 from service.common import status  # HTTP Status Codes
 from . import app  # Import Flask application
@@ -90,7 +92,33 @@ def get_account(account_id):
 # UPDATE AN EXISTING ACCOUNT
 ######################################################################
 
-# ... place you code here to UPDATE an account ...
+@app.route("/accounts/<int:account_id>", methods=["PUT"])
+def update_account(account_id):
+    """
+    Update an existing Account
+    """
+    account = Account.find(account_id)
+    if not account:
+        return jsonify({"message": "Account not found"}), status.HTTP_404_NOT_FOUND
+
+
+    # Verificar que el content-type sea application/json
+    if not request.is_json:
+        return (
+            jsonify({"message": "Request content-type must be application/json"}),
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+        )
+
+    try:
+        account.deserialize(request.get_json())
+    except DataValidationError as error:
+        # Aquí capturamos el error de validación y devolvemos 400 con mensaje claro
+        return jsonify({"message": f"Invalid Account: {error}"}), status.HTTP_400_BAD_REQUEST
+
+    # Guardar cambios en la base de datos
+    account.update()
+
+    return jsonify(account.serialize()), status.HTTP_200_OK
 
 
 ######################################################################
