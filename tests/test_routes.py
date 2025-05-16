@@ -145,3 +145,53 @@ class TestAccountService(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.get_json()
         self.assertEqual(len(data), 5)
+
+    def test_update_account(self):
+        """It should Update an existing Account"""
+        # create an Account to update
+        test_account = AccountFactory()
+        resp = self.client.post(BASE_URL, json=test_account.serialize())
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        # update the account
+        new_account = resp.get_json()
+        new_account["name"] = "Something Known"
+        resp = self.client.put(f"{BASE_URL}/{new_account['id']}", json=new_account)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        updated_account = resp.get_json()
+        self.assertEqual(updated_account["name"], "Something Known")
+
+    def test_update_account_not_found(self):
+        """It should return 404 when trying to update a non-existent Account"""
+        # Intentamos actualizar una cuenta con un ID que no existe
+        fake_id = 9999
+        update_data = {
+            "name": "Non Existent",
+            "email": "noone@example.com",
+            "address": "Unknown",
+            "phone_number": "1234567890",
+            "date_joined": "2023-01-01"
+        }
+        resp = self.client.put(f"{BASE_URL}/{fake_id}", json=update_data)
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        data = resp.get_json()
+        self.assertIn("message", data)
+        self.assertEqual(data["message"], "Account not found")
+
+    def test_update_account_bad_request(self):
+        """It should return 400 Bad Request when updating with invalid data"""
+        # Primero creamos un Account válido
+        account = self._create_accounts(1)[0]
+
+        # Intentamos actualizarlo enviando datos incompletos (falta 'name')
+        invalid_data = {
+            "email": "updated@example.com",
+            "address": "Updated Address",
+            "phone_number": "555-1234",
+            "date_joined": "2023-01-01"
+        }
+
+        resp = self.client.put(f"{BASE_URL}/{account.id}", json=invalid_data)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        data = resp.get_json()
+        self.assertIn("message", data)
+        self.assertTrue("Invalid Account" in data["message"])
